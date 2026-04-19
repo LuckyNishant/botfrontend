@@ -41,6 +41,10 @@ body {
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
 }
 
+.quick-grid {
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+}
+
 .panel {
   background: #fff;
   border-radius: 12px;
@@ -175,6 +179,22 @@ button:hover {
   padding: 8px;
 }
 
+.group-pick-row {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 8px;
+  align-items: start;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 8px;
+  font-size: 14px;
+}
+
+.group-pick-row small {
+  grid-column: 2;
+  color: #64748b;
+}
+
 .danger-btn {
   background: #dc2626;
 }
@@ -220,4 +240,25 @@ button:hover {
   color: #64748b;
   font-size: 13px;
   line-height: 1.5;
+}
+
+.error-text {
+  margin: 0;
+  color: #b91c1c;
+  font-size: 13px;
+}
+
+.qr-wrap {
+  margin-top: 14px;
+  padding: 12px;
+  border: 1px dashed #cbd5e1;
+  border-radius: 10px;
+  text-align: center;
+}
+
+.qr-wrap img {
+  width: 220px;
+  max-width: 100%;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
 }

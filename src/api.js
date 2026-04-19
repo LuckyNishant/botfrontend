@@ -45,6 +45,12 @@ export const api = {
       body: JSON.stringify(payload)
     }),
   getGroups: () => request("/admin/bot/groups"),
+  syncGroups: () => request("/admin/bot/groups/sync"),
+  replaceGroups: (payload) =>
+    request("/admin/bot/groups/replace", {
+      method: "POST",
+      body: JSON.stringify(payload)
+    }),
   addGroup: (payload) =>
     request("/admin/bot/groups", {
       method: "POST",
@@ -63,5 +69,10 @@ export const api = {
   removeWhitelist: (phoneNumber) =>
     request(`/admin/bot/whitelist/${encodeURIComponent(phoneNumber)}`, {
       method: "DELETE"
+    }),
+  setMentionPrefix: (payload) =>
+    request("/admin/bot/mention-prefix", {
+      method: "POST",
+      body: JSON.stringify(payload)
     })
 };

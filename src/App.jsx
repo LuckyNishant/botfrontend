@@ -2,14 +2,7 @@ import { useEffect, useState } from "react";
 import { api } from "./api";
 
 const initialStockForm = { model: "M11", part: "screen", delta: 1 };
-const initialPurchaseForm = {
-  model: "M11",
-  part: "screen",
-  qty: 5,
-  cost: 500,
-  supplier: "Default Supplier"
-};
-const initialGroupForm = { groupId: "", groupName: "" };
+const initialPurchaseForm = { model: "M11", part: "screen", qty: 5, cost: 500, supplier: "" };
 const initialWhitelistForm = { phoneNumber: "", label: "" };
 const ADMIN_SESSION_KEY = "lucky_mobile_admin_auth";
 const DEFAULT_PASSCODE = import.meta.env.VITE_ADMIN_PASSCODE || "luckymobile@admin";
@@ -23,11 +16,15 @@ export default function App() {
   const [dashboard, setDashboard] = useState(null);
   const [stockForm, setStockForm] = useState(initialStockForm);
   const [purchaseForm, setPurchaseForm] = useState(initialPurchaseForm);
-  const [deviceToken, setDeviceToken] = useState("");
+  const [permissionState, setPermissionState] = useState(
+    typeof Notification !== "undefined" ? Notification.permission : "unsupported"
+  );
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [botEnabled, setBotEnabled] = useState(true);
-  const [botStarted, setBotStarted] = useState(false);
-  const [groupForm, setGroupForm] = useState(initialGroupForm);
+  const [botLink, setBotLink] = useState(null);
+  const [mentionPrefix, setMentionPrefix] = useState("@lucky");
+  const [availableGroups, setAvailableGroups] = useState([]);
+  const [selectedGroupIds, setSelectedGroupIds] = useState([]);
   const [whitelistForm, setWhitelistForm] = useState(initialWhitelistForm);
   const [selectedGroups, setSelectedGroups] = useState([]);
   const [whitelistedNumbers, setWhitelistedNumbers] = useState([]);
@@ -40,10 +37,13 @@ export default function App() {
       const data = await api.getDashboard();
       setDashboard(data);
       setSelectedGroups(data.selectedGroups || []);
+      setSelectedGroupIds((data.selectedGroups || []).map((group) => group.groupId));
+      setAvailableGroups(data.availableGroups || []);
       setWhitelistedNumbers(data.whitelistedNumbers || []);
       setBotEnabled(Boolean(data.botEnabled));
-      setBotStarted(Boolean(data.botStarted));
+      setBotLink(data.botLink || null);
       setNotificationsEnabled(Boolean(data.notificationsEnabled));
+      setMentionPrefix(data.mentionPrefix || "@lucky");
       setError("");
     } catch (err) {
       setError(err.message);
@@ -67,6 +67,47 @@ export default function App() {
     } catch (err) {
       setError(err.message);
     }
+  };
+
+  const requestNotificationPermission = async () => {
+    if (typeof Notification === "undefined") {
+      setError("Browser notifications are not supported on this device.");
+      return;
+    }
+    try {
+      setError("");
+      const permission = await Notification.requestPermission();
+      setPermissionState(permission);
+      if (permission === "granted") {
+        setMessage("Notification permission granted for this browser.");
+      } else {
+        setMessage("Notification permission not granted.");
+      }
+    } catch (err) {
+      setError(err.message);
+    }
+  };
+
+  const toggleSelectedGroup = (groupId) => {
+    setSelectedGroupIds((prev) =>
+      prev.includes(groupId) ? prev.filter((id) => id !== groupId) : [...prev, groupId]
+    );
+  };
+
+  const syncGroups = async () => {
+    await runAction(async () => {
+      const result = await api.syncGroups();
+      setAvailableGroups(result.groups || []);
+    }, "WhatsApp groups synced.");
+  };
+
+  const saveSelectedGroups = async () => {
+    await runAction(async () => {
+      const groups = availableGroups.filter((group) => selectedGroupIds.includes(group.groupId));
+      const result = await api.replaceGroups({ groups });
+      setSelectedGroups(result.groups || []);
+      setSelectedGroupIds((result.groups || []).map((group) => group.groupId));
+    }, "Selected groups saved.");
   };
 
   const handleLogin = () => {
@@ -122,9 +163,9 @@ export default function App() {
         />
       </section>
 
-      <section className="grid">
+      <section className="grid quick-grid">
         <div className="panel">
-          <h2>Inventory Stock +/-</h2>
+          <h2>Quick Stock Update</h2>
           <FormRow
             label="Model"
             value={stockForm.model}
@@ -148,7 +189,87 @@ export default function App() {
               runAction(() => api.updateStock(stockForm), "Inventory stock updated successfully.")
             }
           >
-            Update Stock
+            Save Stock Change
+          </button>
+        </div>
+
+        <div className="panel">
+          <h2>WhatsApp Bot</h2>
+          <FormRow
+            label="Mention Trigger"
+            value={mentionPrefix}
+            onChange={setMentionPrefix}
+          />
+          <button
+            onClick={() =>
+              runAction(
+                () => api.setMentionPrefix({ mentionPrefix }),
+                `Mention trigger saved as ${mentionPrefix || "@lucky"}.`
+              )
+            }
+          >
+            Save Trigger (Example: @lucky)
+          </button>
+          <div className="bot-status-row">
+            <span className={`status-badge ${botLink?.started ? "running" : "stopped"}`}>
+              {botLink?.started ? "Connected" : botEnabled ? "Waiting for QR" : "Disabled"}
+            </span>
+            {botLink?.lastError ? <p className="error-text">{botLink.lastError}</p> : null}
+          </div>
+          <div className="button-row">
+            <button
+              onClick={() => runAction(() => api.toggleBot({ enabled: true }), "Bot turned on.")}
+            >
+              Enable Bot
+            </button>
+            <button
+              className="danger-btn"
+              onClick={() => runAction(() => api.toggleBot({ enabled: false }), "Bot turned off.")}
+            >
+              Disable Bot
+            </button>
+            <button onClick={() => runAction(() => api.getDashboard(), "Bot status refreshed.")}>
+              Refresh QR
+            </button>
+          </div>
+          {botLink?.qr ? (
+            <div className="qr-wrap">
+              <img
+                src={`https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(botLink.qr)}`}
+                alt="WhatsApp Web QR"
+              />
+              <p>Scan this QR from WhatsApp Web on your phone.</p>
+            </div>
+          ) : (
+            <p className="helper-text">QR will appear here when WhatsApp needs linking.</p>
+          )}
+        </div>
+      </section>
+
+      <section className="grid">
+        <div className="panel">
+          <h2>Notifications</h2>
+          <p className="helper-text">Permission status: {permissionState}</p>
+          <button onClick={requestNotificationPermission}>Ask Notification Permission</button>
+          <div className="toggle">
+            <label>
+              <input
+                type="checkbox"
+                checked={notificationsEnabled}
+                onChange={(e) => setNotificationsEnabled(e.target.checked)}
+              />
+              Enable Order Notifications
+            </label>
+          </div>
+          <button
+            onClick={() =>
+              runAction(
+                () => api.toggleNotifications({ enabled: notificationsEnabled }),
+                "Notification setting updated."
+              )
+            }
+          >
+            Save Notification Setting
           </button>
         </div>
 
@@ -188,129 +309,47 @@ export default function App() {
               runAction(() => api.addPurchase(purchaseForm), "Purchase entry saved.")
             }
           >
-            Save Purchase
+            Add Purchase
           </button>
         </div>
       </section>
 
       <section className="grid">
         <div className="panel">
-          <h2>FCM Notification Settings</h2>
-          <FormRow label="Device Token" value={deviceToken} onChange={setDeviceToken} />
-          <button
-            onClick={() =>
-              runAction(
-                () => api.saveDeviceToken({ token: deviceToken }),
-                "Admin device token saved."
-              )
-            }
-          >
-            Save Device Token
-          </button>
-
-          <div className="toggle">
-            <label>
-              <input
-                type="checkbox"
-                checked={notificationsEnabled}
-                onChange={(e) => setNotificationsEnabled(e.target.checked)}
-              />
-              Enable Notifications
-            </label>
-          </div>
-          <button
-            onClick={() =>
-              runAction(
-                () => api.toggleNotifications({ enabled: notificationsEnabled }),
-                "Notification setting updated."
-              )
-            }
-          >
-            Update Notification Setting
-          </button>
-        </div>
-
-        <div className="panel">
-          <h2>Bot Control</h2>
-          <div className="bot-status-row">
-            <span className={`status-badge ${botStarted ? "running" : "stopped"}`}>
-              {botStarted ? "Running" : botEnabled ? "Enabled, starting..." : "Stopped"}
-            </span>
-            <span className="status-text">
-              {botEnabled
-                ? "Bot is allowed to run on the backend."
-                : "Bot is disabled from admin panel."}
-            </span>
-          </div>
-          <div className="button-row">
-            <button
-              disabled={botEnabled && botStarted}
-              onClick={() =>
-                runAction(() => api.toggleBot({ enabled: true }), "Bot started from admin panel.")
-              }
-            >
-              Run Bot
-            </button>
-            <button
-              className="danger-btn"
-              disabled={!botEnabled && !botStarted}
-              onClick={() =>
-                runAction(() => api.toggleBot({ enabled: false }), "Bot stopped from admin panel.")
-              }
-            >
-              Stop Bot
-            </button>
-          </div>
+          <h2>Group Sync + Selection</h2>
           <p className="helper-text">
-            Laptop ya server sleep/off hone par bot waise bhi ruk jayega. Ye control sirf running
-            backend process ko start/stop karta hai.
+            Bot reply karega sirf selected groups me jab message {mentionPrefix || "@lucky"} se start ho.
           </p>
-        </div>
-      </section>
-
-      <section className="grid">
-        <div className="panel">
-          <h2>Allowed WhatsApp Groups</h2>
-          <FormRow
-            label="Group ID"
-            value={groupForm.groupId}
-            onChange={(value) => setGroupForm((prev) => ({ ...prev, groupId: value }))}
-          />
-          <FormRow
-            label="Group Name"
-            value={groupForm.groupName}
-            onChange={(value) => setGroupForm((prev) => ({ ...prev, groupName: value }))}
-          />
-          <button
-            onClick={() =>
-              runAction(async () => {
-                const result = await api.addGroup(groupForm);
-                setSelectedGroups(result.groups || []);
-                setGroupForm(initialGroupForm);
-              }, "Group added for bot messaging.")
-            }
-          >
-            Add Group
-          </button>
+          <div className="button-row">
+            <button onClick={syncGroups}>Sync WhatsApp Groups</button>
+            <button onClick={saveSelectedGroups}>Save Selected Groups</button>
+          </div>
           <div className="mini-list">
+            {availableGroups.length === 0 ? (
+              <p>Groups not synced yet. Bot must be connected first.</p>
+            ) : (
+              availableGroups.map((group) => (
+                <label className="group-pick-row" key={group.groupId}>
+                  <input
+                    type="checkbox"
+                    checked={selectedGroupIds.includes(group.groupId)}
+                    onChange={() => toggleSelectedGroup(group.groupId)}
+                  />
+                  <span>{group.groupName || "Unnamed Group"}</span>
+                  <small>{group.groupId}</small>
+                </label>
+              ))
+            )}
+          </div>
+          <div className="mini-list">
+            <h3>Currently Active Groups</h3>
             {selectedGroups.length === 0 ? (
-              <p>No groups selected. Bot will allow all groups.</p>
+              <p>No group selected yet.</p>
             ) : (
               selectedGroups.map((group) => (
                 <div className="mini-row" key={group.groupId}>
                   <span>{group.groupName || "Unnamed Group"}</span>
                   <span>{group.groupId}</span>
-                  <button
-                    className="danger-btn"
-                    onClick={() =>
-                      runAction(async () => {
-                        const result = await api.removeGroup(group.groupId);
-                        setSelectedGroups(result.groups || []);
-                      }, "Group removed.")
-                    }
-                  >
-                    Remove
-                  </button>
                 </div>
               ))
             )}
