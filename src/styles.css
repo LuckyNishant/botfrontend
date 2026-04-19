@@ -30,6 +30,25 @@ body {
   flex-wrap: wrap;
 }
 
+.tabs {
+  margin-top: 16px;
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+}
+
+.tab-btn {
+  background: #e2e8f0;
+  color: #1e293b;
+  text-transform: capitalize;
+}
+
+.tab-btn.active {
+  background: #1d4ed8;
+  color: #fff;
+}
+
 .grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
@@ -171,7 +190,7 @@ button:hover {
 
 .mini-row {
   display: grid;
-  grid-template-columns: 1.2fr 1.8fr auto;
+  grid-template-columns: 1.2fr 1.8fr;
   gap: 8px;
   align-items: center;
   border: 1px solid #e2e8f0;
@@ -261,4 +280,23 @@ button:hover {
   max-width: 100%;
   border-radius: 8px;
   border: 1px solid #e2e8f0;
+}
+
+@media (max-width: 768px) {
+  .container {
+    padding: 12px;
+  }
+
+  .grid,
+  .quick-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .order-row {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .button-row button {
+    flex: 1 1 auto;
+  }
 }
