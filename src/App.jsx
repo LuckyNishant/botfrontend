@@ -26,6 +26,7 @@ export default function App() {
   const [deviceToken, setDeviceToken] = useState("");
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [botEnabled, setBotEnabled] = useState(true);
+  const [botStarted, setBotStarted] = useState(false);
   const [groupForm, setGroupForm] = useState(initialGroupForm);
   const [whitelistForm, setWhitelistForm] = useState(initialWhitelistForm);
   const [selectedGroups, setSelectedGroups] = useState([]);
@@ -41,6 +42,7 @@ export default function App() {
       setSelectedGroups(data.selectedGroups || []);
       setWhitelistedNumbers(data.whitelistedNumbers || []);
       setBotEnabled(Boolean(data.botEnabled));
+      setBotStarted(Boolean(data.botStarted));
       setNotificationsEnabled(Boolean(data.notificationsEnabled));
       setError("");
     } catch (err) {
@@ -230,23 +232,39 @@ export default function App() {
 
         <div className="panel">
           <h2>Bot Control</h2>
-          <div className="toggle">
-            <label>
-              <input
-                type="checkbox"
-                checked={botEnabled}
-                onChange={(e) => setBotEnabled(e.target.checked)}
-              />
-              Bot Enabled
-            </label>
+          <div className="bot-status-row">
+            <span className={`status-badge ${botStarted ? "running" : "stopped"}`}>
+              {botStarted ? "Running" : botEnabled ? "Enabled, starting..." : "Stopped"}
+            </span>
+            <span className="status-text">
+              {botEnabled
+                ? "Bot is allowed to run on the backend."
+                : "Bot is disabled from admin panel."}
+            </span>
           </div>
-          <button
-            onClick={() =>
-              runAction(() => api.toggleBot({ enabled: botEnabled }), "Bot setting updated.")
-            }
-          >
-            Update Bot Mode
-          </button>
+          <div className="button-row">
+            <button
+              disabled={botEnabled && botStarted}
+              onClick={() =>
+                runAction(() => api.toggleBot({ enabled: true }), "Bot started from admin panel.")
+              }
+            >
+              Run Bot
+            </button>
+            <button
+              className="danger-btn"
+              disabled={!botEnabled && !botStarted}
+              onClick={() =>
+                runAction(() => api.toggleBot({ enabled: false }), "Bot stopped from admin panel.")
+              }
+            >
+              Stop Bot
+            </button>
+          </div>
+          <p className="helper-text">
+            Laptop ya server sleep/off hone par bot waise bhi ruk jayega. Ye control sirf running
+            backend process ko start/stop karta hai.
+          </p>
         </div>
       </section>
 
