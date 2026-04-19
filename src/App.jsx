@@ -3,6 +3,7 @@ import QRCode from "qrcode";
 import { api } from "./api";
 
 const initialStockForm = { model: "M11", part: "screen", delta: 1 };
+const initialAddItemForm = { model: "M11", part: "screen", stock: 0, price: 0, compatible: "" };
 const initialPurchaseForm = { model: "M11", part: "screen", qty: 5, cost: 500, supplier: "" };
 const initialWhitelistForm = { phoneNumber: "", label: "" };
 const ADMIN_SESSION_KEY = "lucky_mobile_admin_auth";
@@ -17,6 +18,7 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [dashboard, setDashboard] = useState(null);
   const [stockForm, setStockForm] = useState(initialStockForm);
+  const [addItemForm, setAddItemForm] = useState(initialAddItemForm);
   const [purchaseForm, setPurchaseForm] = useState(initialPurchaseForm);
   const [permissionState, setPermissionState] = useState(
     typeof Notification !== "undefined" ? Notification.permission : "unsupported"
@@ -269,13 +271,18 @@ export default function App() {
               Refresh QR/Status
             </button>
           </div>
+          <p className="helper-text">
+            Step: Enable Bot {"->"} Wait for QR {"->"} Scan QR in WhatsApp Linked Devices {"->"} Refresh Status.
+          </p>
           {qrDataUrl ? (
             <div className="qr-wrap">
               <img src={qrDataUrl} alt="WhatsApp Web QR" />
               <p>Scan this QR from WhatsApp mobile app (Linked devices).</p>
             </div>
           ) : (
-            <p className="helper-text">QR pending. Enable bot and refresh status.</p>
+            <p className="helper-text">
+              QR pending. If error shows client not ready, wait 10-20 sec and click Refresh QR/Status.
+            </p>
           )}
         </div>
 
@@ -337,6 +344,47 @@ export default function App() {
             }
           >
             Save Stock Change
+          </button>
+        </div>
+
+        <div className="panel">
+          <h2>Add New Inventory Item</h2>
+          <FormRow
+            label="Model"
+            value={addItemForm.model}
+            onChange={(value) => setAddItemForm((prev) => ({ ...prev, model: value }))}
+          />
+          <FormRow
+            label="Part"
+            value={addItemForm.part}
+            onChange={(value) => setAddItemForm((prev) => ({ ...prev, part: value }))}
+          />
+          <FormRow
+            label="Opening Stock"
+            type="number"
+            value={addItemForm.stock}
+            onChange={(value) => setAddItemForm((prev) => ({ ...prev, stock: Number(value || 0) }))}
+          />
+          <FormRow
+            label="Price"
+            type="number"
+            value={addItemForm.price}
+            onChange={(value) => setAddItemForm((prev) => ({ ...prev, price: Number(value || 0) }))}
+          />
+          <FormRow
+            label="Compatible"
+            value={addItemForm.compatible}
+            onChange={(value) => setAddItemForm((prev) => ({ ...prev, compatible: value }))}
+          />
+          <button
+            onClick={() =>
+              runAction(async () => {
+                await api.addInventoryItem(addItemForm);
+                setAddItemForm(initialAddItemForm);
+              }, "New inventory item added.")
+            }
+          >
+            Add Item
           </button>
         </div>
 

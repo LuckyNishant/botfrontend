@@ -24,6 +24,11 @@ export const api = {
       method: "POST",
       body: JSON.stringify(payload)
     }),
+  addInventoryItem: (payload) =>
+    request("/admin/inventory/add-item", {
+      method: "POST",
+      body: JSON.stringify(payload)
+    }),
   addPurchase: (payload) =>
     request("/admin/purchase/add", {
       method: "POST",
