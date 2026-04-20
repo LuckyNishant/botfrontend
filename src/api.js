@@ -49,6 +49,11 @@ export const api = {
       method: "POST",
       body: JSON.stringify(payload)
     }),
+  getBotLinkStatus: () => request("/admin/bot/link-status"),
+  restartBotLink: () =>
+    request("/admin/bot/restart-link", {
+      method: "POST"
+    }),
   getGroups: () => request("/admin/bot/groups"),
   syncGroups: () => request("/admin/bot/groups/sync"),
   replaceGroups: (payload) =>

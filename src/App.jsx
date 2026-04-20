@@ -117,6 +117,22 @@ export default function App() {
     };
   }, [botLink?.qr]);
 
+  useEffect(() => {
+    if (!isAuthenticated) return undefined;
+    if (!botEnabled || botLink?.started) return undefined;
+
+    const interval = setInterval(async () => {
+      try {
+        const data = await api.getBotLinkStatus();
+        setBotLink(data.link || null);
+      } catch (_error) {
+        // Silent polling failure; manual refresh still available.
+      }
+    }, 4000);
+
+    return () => clearInterval(interval);
+  }, [isAuthenticated, botEnabled, botLink?.started]);
+
   // Clear message after 3 seconds
   useEffect(() => {
     if (message) {
@@ -320,7 +336,14 @@ export default function App() {
         </div>
 
         {message && <div className="notification"><Icons.Plus /> {message}</div>}
-        {error && <div className="badge badge-danger mb-4" style={{width: '100%', padding: '1rem'}}>{error}</div>}
+        {error && (
+          <div className="badge badge-danger mb-4" style={{width: '100%', padding: '1rem', whiteSpace: 'pre-wrap', textAlign: 'left', lineHeight: '1.4'}}>
+            <div style={{fontWeight: 800, marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem'}}>
+              <Icons.X /> SYSTEM ERROR
+            </div>
+            {error}
+          </div>
+        )}
 
         {activeTab === "overview" && (
           <div className="fade-in">
@@ -343,6 +366,9 @@ export default function App() {
                   <table className="data-table">
                     <tbody>
                       <tr><td>Sheets Connection</td><td>{dashboard?.diagnostics?.sheetsReady ? <span className="badge badge-success">Ready</span> : <span className="badge badge-danger">Error</span>}</td></tr>
+                      {dashboard?.diagnostics?.serviceEmail && (
+                        <tr><td>Service Email</td><td style={{fontSize: '0.8rem', fontStyle: 'italic'}}>{dashboard.diagnostics.serviceEmail}</td></tr>
+                      )}
                       <tr><td>Bot Connection</td><td>{botLink?.started ? <span className="status-indicator status-online"></span> : <span className="status-indicator status-offline"></span>}{botLink?.started ? "CONNECTED" : "OFFLINE"}</td></tr>
                       <tr><td>Server Time</td><td>{dashboard?.diagnostics?.serverTime || "-"}</td></tr>
                       <tr><td>API Endpoint</td><td style={{fontSize: '0.7rem', color: 'var(--text-muted)'}}>{import.meta.env.VITE_API_BASE_URL || "luckymobilebackend.onrender.com"}</td></tr>
@@ -395,9 +421,30 @@ export default function App() {
                     <button className="btn btn-success" disabled={isSubmitting} onClick={() => runAction(() => api.toggleBot({ enabled: true }), "Bot initialization started.")}>Enable Bot</button>
                     <button className="btn btn-danger" disabled={isSubmitting} onClick={() => runAction(() => api.toggleBot({ enabled: false }), "Bot shutdown.")}>Disable Bot</button>
                     <button className="btn btn-ghost" disabled={isSubmitting} onClick={() => runAction(() => api.getDashboard(), "Status refreshed.")}>Refresh Connection</button>
+                    <button
+                      className="btn btn-warning"
+                      disabled={isSubmitting}
+                      onClick={() =>
+                        runAction(
+                          async () => {
+                            const res = await api.restartBotLink();
+                            setBotLink(res.link || null);
+                          },
+                          "Link session restarted. New QR is being generated.",
+                          { refreshDashboard: false }
+                        )
+                      }
+                    >
+                      Regenerate QR
+                    </button>
                   </div>
 
                   {botLink?.lastError && <p className="badge badge-danger mt-4" style={{width: '100%'}}>{botLink.lastError}</p>}
+                  {botLink?.starting && !botLink?.qr && !botLink?.started && (
+                    <p className="badge badge-warning mt-4" style={{width: '100%'}}>
+                      Initializing WhatsApp Web... QR usually appears in 5-30 seconds.
+                    </p>
+                  )}
                   
                   <div className="qr-container mt-4">
                     {qrDataUrl ? (
